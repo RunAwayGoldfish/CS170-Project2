@@ -3,14 +3,12 @@
 import numpy as np
 import math
 
-# Read the data from a file
-#df = pd.read_csv('small-test-dataset.txt', delim_whitespace=True, header=None)
 
-data_array = np.loadtxt('large-test-dataset.txt')
+data_array = np.loadtxt('small-test-dataset.txt')
 
 first_column = data_array[:, 0]
 
-# Normalize the rest of the columns (excluding the first column)
+# Noramlizing Features
 data_normalized = np.copy(data_array)
 for i in range(1, data_normalized.shape[1]):
     col = data_normalized[:, i]
@@ -18,7 +16,6 @@ for i in range(1, data_normalized.shape[1]):
     col_std = np.std(col)
     data_normalized[:, i] = (col - col_mean) / col_std
 
-# Restore the first column
 data_normalized[:, 0] = first_column
 
 
@@ -28,28 +25,35 @@ class featuresAndAccuracy:
         self.featureList = featureList
         self.Accuracy = Accuracy
 
-
-def findBestFeatures(data, currList, remainingFeatureList, combinations):
-    print("Features remaining", len(remainingFeatureList))
+def backwardSelection(data, currList, remainingFeatureList, currAccuracy):
     if(len(remainingFeatureList) == 0):
-        return
-    bestAccuracy = -1
+        return featuresAndAccuracy(currList, currAccuracy)
+    
+    newBestAccuracy = -1
     newBestList = []
     addedFeature = -1
     for i in remainingFeatureList:
         newList = currList[:]
-        newList.append(i)
-        #print("New list", newList)
+        newList.remove(i)
+        
         newListAccuracy = findAccuracy(data, newList)
-        if(newListAccuracy >= bestAccuracy):
-            bestAccuracy = newListAccuracy
+        if(newListAccuracy >= newBestAccuracy):
+            newBestAccuracy = newListAccuracy
             newBestList = newList
             addedFeature = i
-    combinations.append(featuresAndAccuracy(newBestList, bestAccuracy))
-    remainingFeatureList.remove(addedFeature)
+
+    if(newBestAccuracy < currAccuracy):
+        x = featuresAndAccuracy(currList, currAccuracy)
+        return x
+
     currList = newBestList
-    findBestFeatures(data, currList, remainingFeatureList, combinations)
-    
+    currAccuracy = newBestAccuracy
+    remainingFeatureList.remove(addedFeature)
+    return backwardSelection(data, currList, remainingFeatureList, currAccuracy)
+
+
+
+
 def findBestFeatures2(data, currList, remainingFeatureList, currAccuracy):
     print("Features remaining", len(remainingFeatureList))
     if(len(remainingFeatureList) == 0):
@@ -69,7 +73,6 @@ def findBestFeatures2(data, currList, remainingFeatureList, currAccuracy):
             addedFeature = i
 
     if(newBestAccuracy < currAccuracy):
-        #print(currAccuracy, currAccuracy)
         x = featuresAndAccuracy(currList, currAccuracy)
         return x
 
@@ -77,37 +80,22 @@ def findBestFeatures2(data, currList, remainingFeatureList, currAccuracy):
     currAccuracy = newBestAccuracy
     remainingFeatureList.remove(addedFeature)
     return findBestFeatures2(data, currList, remainingFeatureList, currAccuracy)
-        
-
-def main2(data):
-    results1 = main(data)
-    results2 = main(data, findBestFeatures2)
-    if(results1.Accuracy != results2.Accuracy):
-        print("FUCK")
-    else:
-        print(results1.Accuracy, results1.featureList)
 
 
-def main(data, searchFunc = findBestFeatures):
+def main(data, mode="Forward"):
     featureCount = data.shape[1]
     remainingFeatureList = [i for i in range(1, featureCount)]
     currList = []
-    combinations = []
-
-    print(remainingFeatureList)
-    
-    if(searchFunc == findBestFeatures):
-        findBestFeatures(data, currList, remainingFeatureList, combinations)
-        best = featuresAndAccuracy([],0)
-        for i in range(len(combinations)):
-            if(best.accuracy > combinations[i].accuracy):
-                best = combinations[i]
-            return best
-    if(searchFunc == findBestFeatures2):
-        bestFeatureList = []
-        currAccuracy = 0
+    currAccuracy = 0
+    best = None
+    if(mode == "Forward"):
         best = findBestFeatures2(data, currList, remainingFeatureList, currAccuracy)
-        return best
+    elif(mode == "Backwards"):
+        currList = remainingFeatureList[:]
+        best = backwardSelection(data,currList, remainingFeatureList, currAccuracy)
+
+    print("Best feature list:", best.featureList)
+    print("Best feature list accuracy: ", best.Accuracy)
 
 
 
@@ -118,7 +106,6 @@ def findAccuracy(data, features):
         if(NN == data[i][0]):
             correct +=1
     accuracy = correct / data.shape[0]
-    #print(accuracy)
     return accuracy
 
 def findNearestNeighbor2(index, data, features):
@@ -142,6 +129,4 @@ def findNearestNeighbor2(index, data, features):
 
 
 
-best = main(data_normalized, findBestFeatures2)
-print(best.Accuracy)
-print(best.featureList)
+main(data_normalized, mode="Backwards")
